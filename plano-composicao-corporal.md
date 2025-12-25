@@ -172,9 +172,9 @@ Perda de 17 kg de gordura mantendo a massa muscular de 43.6 kg.
 | Fase | Duração | Meta de peso | Meta gordura | Meta músculo |
 |------|---------|--------------|--------------|--------------|
 | 1 | Meses 1-3 | 53 kg | -2 kg gordura | +1.5 kg músculo |
-| 2 | Meses 4-6 | 52 kg | -2 kg gordura | +2 kg músculo |
-| 3 | Meses 7-9 | 51 kg | -2 kg gordura | +2 kg músculo |
-| Final | 9-12 meses | ~50-51 kg | 12 kg gordura | 24.5 kg músculo |
+| 2 | Meses 4-6 | 53 kg | -2 kg gordura | +2 kg músculo |
+| 3 | Meses 7-9 | 53 kg | -2 kg gordura | +2 kg músculo |
+| Final | 9-12 meses | ~53 kg | 12.2 kg gordura | 24.5 kg músculo |
 
 ### Anderson - Metas por fase
 | Fase | Duração | Meta de peso | Meta gordura | Meta músculo |
