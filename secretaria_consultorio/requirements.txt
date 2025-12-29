@@ -1,0 +1,3 @@
+# Secretária Eletrônica de Consultório
+# Este projeto usa apenas bibliotecas padrão do Python 3.8+
+# Não há dependências externas necessárias
