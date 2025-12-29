@@ -1,3 +1,12 @@
 # Secretária Eletrônica de Consultório
-# Este projeto usa apenas bibliotecas padrão do Python 3.8+
-# Não há dependências externas necessárias
+# Dependências opcionais para WhatsApp
+
+# Para integração com WhatsApp (qualquer provedor)
+requests>=2.28.0
+
+# Para servidor webhook mais robusto (opcional)
+# flask>=2.0.0
+
+# O projeto funciona sem dependências externas para uso básico
+# Instale 'requests' apenas se for usar integração com WhatsApp:
+#   pip install requests

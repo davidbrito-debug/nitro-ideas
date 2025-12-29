@@ -14,6 +14,7 @@ from models import (
 from database import Database
 from scheduler import Agendador
 from chatbot import Chatbot
+from whatsapp import WhatsAppService, ConfiguracaoWhatsApp, ProvedorWhatsApp
 
 
 class CLI:
@@ -22,6 +23,7 @@ class CLI:
         self.agendador = Agendador(self.db)
         self.chatbot = Chatbot(self.db)
         self.config = self.db.carregar_configuracao()
+        self.whatsapp = WhatsAppService(self.db)
 
     def limpar_tela(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -39,11 +41,16 @@ class CLI:
             self.limpar_tela()
             self.cabecalho(f"SECRETÁRIA ELETRÔNICA - {self.config.nome_consultorio}")
 
+            # Status do WhatsApp
+            wa_status, wa_msg = self.whatsapp.verificar_conexao()
+            wa_icon = "🟢" if wa_status else "🔴"
+
             print("  1. Modo Atendimento (Chatbot)")
             print("  2. Gerenciar Pacientes")
             print("  3. Gerenciar Consultas")
             print("  4. Ver Agenda do Dia")
-            print("  5. Configurações")
+            print(f"  5. WhatsApp {wa_icon}")
+            print("  6. Configurações")
             print("  0. Sair")
             print()
 
@@ -58,6 +65,8 @@ class CLI:
             elif opcao == '4':
                 self.ver_agenda_dia()
             elif opcao == '5':
+                self.menu_whatsapp()
+            elif opcao == '6':
                 self.menu_configuracoes()
             elif opcao == '0':
                 print("\nAté logo!")
@@ -593,4 +602,171 @@ class CLI:
 
         self.db.salvar_configuracao(self.config)
         print("\nMensagens atualizadas!")
+        self.pausar()
+
+    # ========== WHATSAPP ==========
+
+    def menu_whatsapp(self):
+        while True:
+            self.limpar_tela()
+            self.cabecalho("WHATSAPP")
+
+            status, msg = self.whatsapp.verificar_conexao()
+            status_icon = "🟢 Conectado" if status else "🔴 Desconectado"
+            provedor = self.whatsapp.config.provedor.value.upper()
+
+            print(f"  Status: {status_icon}")
+            print(f"  Provedor: {provedor}")
+            print(f"  Lembretes: {'Ativo' if self.whatsapp.config.ativo else 'Inativo'}")
+            print()
+            print("  1. Configurar WhatsApp")
+            print("  2. Enviar Lembretes Pendentes")
+            print("  3. Enviar Mensagem de Teste")
+            print("  4. Testar Conexão")
+            print("  5. Iniciar Servidor Webhook")
+            print("  0. Voltar")
+            print()
+
+            opcao = input("Escolha uma opção: ").strip()
+
+            if opcao == '1':
+                self.config_whatsapp()
+            elif opcao == '2':
+                self.enviar_lembretes()
+            elif opcao == '3':
+                self.enviar_mensagem_teste()
+            elif opcao == '4':
+                self.testar_conexao_whatsapp()
+            elif opcao == '5':
+                self.iniciar_webhook()
+            elif opcao == '0':
+                break
+
+    def config_whatsapp(self):
+        self.limpar_tela()
+        self.cabecalho("CONFIGURAR WHATSAPP")
+
+        config = self.whatsapp.config
+
+        print("Escolha o provedor:")
+        print("  1. Twilio (pago, mais confiável)")
+        print("  2. Evolution API (gratuito, self-hosted)")
+        print("  3. Meta Cloud API (oficial WhatsApp Business)")
+        print("  4. Mock (simulação para testes)")
+        print()
+
+        opcao = input(f"Provedor atual [{config.provedor.value}]: ").strip()
+
+        if opcao == '1':
+            config.provedor = ProvedorWhatsApp.TWILIO
+            print("\n--- Configuração Twilio ---")
+            config.twilio_account_sid = input(f"Account SID [{config.twilio_account_sid[:10]}...]: ").strip() or config.twilio_account_sid
+            config.twilio_auth_token = input("Auth Token: ").strip() or config.twilio_auth_token
+            config.twilio_whatsapp_number = input(f"Número WhatsApp [{config.twilio_whatsapp_number}]: ").strip() or config.twilio_whatsapp_number
+
+        elif opcao == '2':
+            config.provedor = ProvedorWhatsApp.EVOLUTION
+            print("\n--- Configuração Evolution API ---")
+            config.evolution_api_url = input(f"URL da API [{config.evolution_api_url}]: ").strip() or config.evolution_api_url
+            config.evolution_api_key = input("API Key: ").strip() or config.evolution_api_key
+            config.evolution_instance = input(f"Instância [{config.evolution_instance}]: ").strip() or config.evolution_instance
+
+        elif opcao == '3':
+            config.provedor = ProvedorWhatsApp.META_CLOUD
+            print("\n--- Configuração Meta Cloud API ---")
+            config.meta_access_token = input("Access Token: ").strip() or config.meta_access_token
+            config.meta_phone_number_id = input(f"Phone Number ID [{config.meta_phone_number_id}]: ").strip() or config.meta_phone_number_id
+
+        elif opcao == '4':
+            config.provedor = ProvedorWhatsApp.MOCK
+
+        # Configurações gerais
+        print("\n--- Configurações Gerais ---")
+        horas = input(f"Enviar lembrete quantas horas antes [{config.lembrete_horas_antes}]: ").strip()
+        if horas:
+            config.lembrete_horas_antes = int(horas)
+
+        ativar = input(f"Ativar WhatsApp? (s/n) [{'s' if config.ativo else 'n'}]: ").strip().lower()
+        if ativar:
+            config.ativo = ativar == 's'
+
+        self.whatsapp.salvar_config(config)
+        print("\n✅ Configurações salvas com sucesso!")
+        self.pausar()
+
+    def enviar_lembretes(self):
+        self.limpar_tela()
+        self.cabecalho("ENVIAR LEMBRETES")
+
+        if not self.whatsapp.config.ativo:
+            print("❌ WhatsApp não está ativo. Configure primeiro.")
+            self.pausar()
+            return
+
+        print("Buscando consultas para enviar lembretes...\n")
+
+        resultados = self.whatsapp.processar_lembretes()
+
+        if not resultados:
+            print("Nenhum lembrete pendente para enviar.")
+        else:
+            for r in resultados:
+                icon = "✅" if r['sucesso'] else "❌"
+                print(f"{icon} {r['paciente']} - {r['mensagem']}")
+
+            enviados = sum(1 for r in resultados if r['sucesso'])
+            print(f"\nTotal: {enviados}/{len(resultados)} lembretes enviados")
+
+        self.pausar()
+
+    def enviar_mensagem_teste(self):
+        self.limpar_tela()
+        self.cabecalho("ENVIAR MENSAGEM DE TESTE")
+
+        telefone = input("Telefone (com DDD): ").strip()
+        mensagem = input("Mensagem: ").strip() or "Teste da Secretária Eletrônica"
+
+        print("\nEnviando...")
+        sucesso, msg = self.whatsapp.enviar_mensagem(telefone, mensagem)
+
+        if sucesso:
+            print(f"\n✅ Mensagem enviada com sucesso!")
+            print(f"   ID: {msg}")
+        else:
+            print(f"\n❌ Falha ao enviar: {msg}")
+
+        self.pausar()
+
+    def testar_conexao_whatsapp(self):
+        self.limpar_tela()
+        self.cabecalho("TESTAR CONEXÃO")
+
+        print("Testando conexão com WhatsApp...\n")
+
+        sucesso, msg = self.whatsapp.verificar_conexao()
+
+        if sucesso:
+            print(f"✅ {msg}")
+        else:
+            print(f"❌ {msg}")
+
+        print(f"\nProvedor: {self.whatsapp.config.provedor.value}")
+        self.pausar()
+
+    def iniciar_webhook(self):
+        self.limpar_tela()
+        self.cabecalho("SERVIDOR WEBHOOK")
+
+        print("O servidor webhook permite receber mensagens do WhatsApp.")
+        print("Ele ficará rodando em segundo plano.\n")
+
+        porta = input("Porta [5000]: ").strip() or "5000"
+
+        print(f"\nPara iniciar o servidor, execute em outro terminal:")
+        print(f"\n  python webhook_server.py {porta}")
+        print(f"\nEndpoints disponíveis:")
+        print(f"  POST http://localhost:{porta}/webhook/twilio")
+        print(f"  POST http://localhost:{porta}/webhook/evolution")
+        print(f"  POST http://localhost:{porta}/webhook/meta")
+
         self.pausar()

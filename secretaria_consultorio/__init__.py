@@ -7,8 +7,9 @@ from .database import Database
 from .scheduler import Agendador
 from .chatbot import Chatbot
 from .cli import CLI
+from .whatsapp import WhatsAppService, ConfiguracaoWhatsApp, ProvedorWhatsApp
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __all__ = [
     'Paciente',
     'Consulta',
@@ -17,5 +18,8 @@ __all__ = [
     'Database',
     'Agendador',
     'Chatbot',
-    'CLI'
+    'CLI',
+    'WhatsAppService',
+    'ConfiguracaoWhatsApp',
+    'ProvedorWhatsApp',
 ]
